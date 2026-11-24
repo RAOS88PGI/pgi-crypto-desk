@@ -1,0 +1,37 @@
+name: Crypto alerts
+
+on:
+  schedule:
+    - cron: "5 1 1 * *"   # tanggal 1 tiap bulan, 08:05 WIB: golden cross MACD bulanan
+    - cron: "5 1 * * *"   # tiap hari, 08:05 WIB: pindai harian
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "monthly atau daily"
+        required: true
+        default: daily
+
+permissions:
+  contents: read
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Jalankan peringatan
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+        run: |
+          if [ -n "$INPUT_MODE" ]; then MODE="$INPUT_MODE";
+          elif [ "$EVENT_SCHEDULE" = "5 1 1 * *" ]; then MODE=monthly;
+          else MODE=daily; fi
+          python3 crypto-alerts/alert.py "$MODE"

@@ -32,3 +32,11 @@ Tes: `python3 -m unittest discover -s tests -v` (offline, memakai data sintetis)
 - Backtest memakai aturan sederhana, long only, dan data masa lalu. Hasil bagus belum tentu berulang.
 - Data dari endpoint publik Binance; bisa terlambat atau terkena batas permintaan. Jaringan tertentu memblokir Binance.
 - Kamu yang bertanggung jawab atas setiap order. Mulai dengan akun demo atau nominal sangat kecil.
+
+## Otomatis lewat email (GitHub Actions)
+`/crypto-alerts` mengirim email ke prastyaglobalindonesia@gmail.com: golden cross MACD bulanan (tanggal 1, 08:05 WIB) dan pindai harian (08:05 WIB).
+Setup satu kali:
+1. Di akun Gmail pengirim, aktifkan verifikasi 2 langkah, lalu buat **App Password** (Akun Google, Keamanan, Sandi aplikasi).
+2. Di repo ini: **Settings, Secrets and variables, Actions, New repository secret**. Isi `GMAIL_USER` (alamat Gmail) dan `GMAIL_APP_PASSWORD` (sandi aplikasi 16 huruf). Opsional `MAIL_TO` jika penerima berbeda.
+3. Tab **Actions**, pilih *Crypto alerts*, **Run workflow**, mode `daily`, untuk mencoba sekali.
+Jika email berjudul "GAGAL", Binance memblokir server GitHub; beri tahu Claude untuk memakai sumber data cadangan.

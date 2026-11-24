@@ -23,6 +23,7 @@ size = load("crypto-size", "size")
 ex = load("crypto-exit", "exit")
 bt = load("crypto-backtest", "backtest")
 jr = load("crypto-journal", "journal")
+al = load("crypto-alerts", "alert")
 
 
 def bars(closes, spread=1.0, vol=100.0, step=86400000):
@@ -190,6 +191,56 @@ class Journal(unittest.TestCase):
         self.assertAlmostEqual(jr.r_multiple(t), 2.0)
         s = jr.stats(jr.load(p)["trades"])
         self.assertEqual(s["win_rate"], 100.0)
+
+
+class Alerts(unittest.TestCase):
+    def fixture(self, with_cross=True):
+        import math
+        d = tempfile.mkdtemp()
+        closes = [100 + 10 * math.sin(i / 6.0) for i in range(160)]
+        n = None
+        if with_cross:
+            for m in range(60, len(closes) + 1):
+                r = scan.analyze(C.parse_klines(bars(closes[max(0, m - 60):m], step=2592000000)))
+                if r and "macd_cross" in r["setups"]:
+                    n = m
+                    break
+            self.assertIsNotNone(n)
+            closes = closes[:n]
+        json.dump(bars(closes, step=2592000000), open(os.path.join(d, "AAAUSDT-1M.json"), "w"))
+        json.dump([{"symbol": "AAAUSDT", "quoteVolume": "50000000"}], open(os.path.join(d, "universe.json"), "w"))
+        return d
+
+    def test_monthly_report(self):
+        import datetime
+        d = self.fixture()
+        subject, body, ok = al.build("monthly", d, today=datetime.date(2026, 12, 1))
+        self.assertTrue(ok)
+        self.assertIn("Nov 2026", subject)
+        self.assertIn("AAA", body)
+        self.assertIn("golden cross MACD", body)
+
+    def test_failure_when_no_data(self):
+        d = tempfile.mkdtemp()
+        json.dump([{"symbol": "AAAUSDT", "quoteVolume": "50000000"}], open(os.path.join(d, "universe.json"), "w"))
+        subject, body, ok = al.build("monthly", d)
+        self.assertFalse(ok)
+        self.assertIn("GAGAL", subject)
+
+    def test_send_builds_message(self):
+        from unittest import mock
+        with mock.patch.object(al.smtplib, "SMTP_SSL") as smtp:
+            al.send("Subj", "Isi", "me@gmail.com", "pw", "to@gmail.com")
+            inst = smtp.return_value.__enter__.return_value
+            inst.login.assert_called_once_with("me@gmail.com", "pw")
+            sent = inst.send_message.call_args[0][0]
+            self.assertEqual((sent["To"], sent["Subject"]), ("to@gmail.com", "Subj"))
+
+    def test_workflow_file(self):
+        t = open(os.path.join(ROOT, ".github", "workflows", "crypto-alerts.yml"), encoding="utf-8").read()
+        self.assertIn("5 1 1 * *", t)
+        self.assertIn("secrets.GMAIL_APP_PASSWORD", t)
+        self.assertNotIn("password:", t.lower().replace("gmail_app_password", ""))
 
 
 class Repo(unittest.TestCase):
